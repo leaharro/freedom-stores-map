@@ -206,28 +206,28 @@
 
                 // Fit map to show all markers
                 if (markers.length > 0) {
+                    console.log(`📍 Added ${markers.length} markers to map`);
                     const bounds = new window.google.maps.LatLngBounds();
                     markers.forEach(marker => bounds.extend(marker.getPosition()));
                     
-                    // Only fit bounds if we have valid US coordinates
-                    const center = bounds.getCenter();
-                    if (center.lat() >= 25.0 && center.lat() <= 49.0 && center.lng() >= -125.0 && center.lng() <= -66.0) {
-                        map.fitBounds(bounds);
-                        
-                        // Ensure we don't zoom in too much
-                        const listener = window.google.maps.event.addListener(map, 'idle', function() {
-                            if (map.getZoom() > 8) map.setZoom(8);
-                            if (map.getZoom() < 4) map.setZoom(4);
-                            window.google.maps.event.removeListener(listener);
-                        });
-                    } else {
-                        // Keep US view if coordinates seem wrong
-                        map.setCenter({ lat: 39.8283, lng: -98.5795 });
-                        map.setZoom(4);
-                        console.warn('Coordinates appear to be outside US bounds, keeping US center view');
-                    }
+                    map.fitBounds(bounds);
+                    
+                    // Ensure reasonable zoom levels
+                    const listener = window.google.maps.event.addListener(map, 'idle', function() {
+                        const currentZoom = map.getZoom();
+                        console.log(`Current zoom level: ${currentZoom}`);
+                        if (currentZoom > 8) {
+                            console.log('Zoom too high, setting to 8');
+                            map.setZoom(8);
+                        }
+                        if (currentZoom < 3) {
+                            console.log('Zoom too low, setting to 3');
+                            map.setZoom(3);
+                        }
+                        window.google.maps.event.removeListener(listener);
+                    });
                 } else {
-                    // No markers, keep US view
+                    console.log('⚠️ No markers to display, keeping US center view');
                     map.setCenter({ lat: 39.8283, lng: -98.5795 });
                     map.setZoom(4);
                 }
@@ -238,23 +238,26 @@
                     setLoading(true);
                     setError('');
 
-                    // Use the exact sheet name with asterisks
+                    // Use the exact sheet name
                     const encodedSheetName = encodeURIComponent(CONFIG.SHEET_NAME);
                     const url = `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.SHEET_ID}/values/${encodedSheetName}?key=${CONFIG.API_KEY}`;
                     
-                    console.log('Fetching from URL:', url);
-                    console.log('Sheet name being used:', CONFIG.SHEET_NAME);
+                    console.log('🔗 FETCHING FROM URL:', url);
+                    console.log('📊 Sheet ID:', CONFIG.SHEET_ID);
+                    console.log('📋 Sheet Name:', CONFIG.SHEET_NAME);
                     
                     const response = await fetch(url);
                     
                     if (!response.ok) {
                         const errorData = await response.json();
-                        console.error('API Error Response:', errorData);
+                        console.error('❌ API Error Response:', errorData);
                         throw new Error(`Google Sheets API error: ${response.status} - ${errorData.error?.message || response.statusText}`);
                     }
                     
                     const data = await response.json();
-                    console.log('Google Sheets response:', data);
+                    console.log('✅ GOOGLE SHEETS RESPONSE RECEIVED');
+                    console.log('📄 Total rows received:', data.values ? data.values.length : 0);
+                    console.log('📋 First 3 rows of raw data:', data.values ? data.values.slice(0, 3) : 'No data');
                     
                     if (!data.values || data.values.length === 0) {
                         throw new Error('No data found in the specified sheet');
@@ -263,7 +266,7 @@
                     const parsedStores = parseGoogleSheetsData(data.values);
                     setStores(parsedStores);
                     setLastUpdated(new Date());
-                    console.log('Loaded stores:', parsedStores.length);
+                    console.log('🏪 FINAL RESULT: Loaded', parsedStores.length, 'stores');
 
                     // Add markers to map if map is loaded
                     if (mapLoaded) {
@@ -271,7 +274,7 @@
                     }
                     
                 } catch (err) {
-                    console.error('Error fetching data:', err);
+                    console.error('💥 Error fetching data:', err);
                     setError(err.message);
                 } finally {
                     setLoading(false);
@@ -281,61 +284,91 @@
             const parseGoogleSheetsData = (values) => {
                 const stores = [];
                 
-                console.log('Raw sheet data:', values);
-                console.log('Header row:', values[0]);
+                console.log('🔍 PARSING SHEET DATA');
+                console.log('📋 Header row (Row 0):', values[0]);
+                console.log('📊 Total rows to process:', values.length - 1);
+                
+                // Show the column mapping we're using
+                console.log('📍 COLUMN MAPPING:');
+                console.log('  Column A (index 0): STATUS');
+                console.log('  Column I (index 8): RETAILER'); 
+                console.log('  Column J (index 9): RESERVATION LINK');
+                console.log('  Column K (index 10): STORE NO.');
+                console.log('  Column L (index 11): STORE NAME');
+                console.log('  Column M (index 12): STREET');
+                console.log('  Column N (index 13): CITY');
+                console.log('  Column O (index 14): STATE');
+                console.log('  Column P (index 15): LATITUDE');
+                console.log('  Column Q (index 16): LONGITUDE');
+                console.log('  Column S (index 18): ZIP');
                 
                 // Skip header row (index 0) and process data rows
-                for (let i = 1; i < values.length; i++) {
+                for (let i = 1; i < values.length && i <= 5; i++) { // Only process first 5 rows for debugging
                     const row = values[i];
                     
-                    console.log(`Row ${i}:`, row);
+                    console.log(`\n🔍 PROCESSING ROW ${i}:`);
+                    console.log(`  Raw row data:`, row);
+                    console.log(`  Row length: ${row.length} columns`);
                     
-                    // Ensure we have enough columns (need at least column S = index 18)
                     if (row.length >= 19) {
-                        const status = row[0]?.toString().trim().toLowerCase(); // Column A (index 0)
-                        console.log(`Row ${i} STATUS (Column A):`, `"${status}"`);
+                        console.log(`  ✅ Row has enough columns (${row.length} >= 19)`);
                         
-                        // Include stores with Open, Reserved, or Staffed status
+                        // Show what's in each column we care about
+                        console.log(`  Column A (STATUS): "${row[0]}"`);
+                        console.log(`  Column I (RETAILER): "${row[8]}"`);
+                        console.log(`  Column K (STORE NO): "${row[10]}"`);
+                        console.log(`  Column L (STORE NAME): "${row[11]}"`);
+                        console.log(`  Column O (STATE): "${row[14]}"`);
+                        console.log(`  Column P (LATITUDE): "${row[15]}"`);
+                        console.log(`  Column Q (LONGITUDE): "${row[16]}"`);
+                        
+                        const status = row[0]?.toString().trim().toLowerCase();
+                        console.log(`  Processed STATUS: "${status}"`);
+                        console.log(`  Is status in allowed list? ${['open', 'reserved', 'staffed'].includes(status)}`);
+                        
                         if (['open', 'reserved', 'staffed'].includes(status)) {
-                            const lat = parseFloat(row[15]); // Column P (index 15) - Latitude
-                            const lng = parseFloat(row[16]); // Column Q (index 16) - Longitude
+                            console.log(`  ✅ Status "${status}" is allowed`);
                             
-                            console.log(`Row ${i} coordinates (P=${lat}, Q=${lng}):`, lat, lng);
+                            const lat = parseFloat(row[15]);
+                            const lng = parseFloat(row[16]);
                             
-                            // Only add if we have valid coordinates
+                            console.log(`  RAW coordinates: lat="${row[15]}", lng="${row[16]}"`);
+                            console.log(`  PARSED coordinates: lat=${lat}, lng=${lng}`);
+                            console.log(`  Are coordinates valid numbers? lat=${!isNaN(lat)}, lng=${!isNaN(lng)}`);
+                            
                             if (!isNaN(lat) && !isNaN(lng)) {
-                                // Validate coordinates are within US bounds
-                                if (lat >= 25.0 && lat <= 49.0 && lng >= -125.0 && lng <= -66.0) {
-                                    const store = {
-                                        status: row[0]?.toString().trim() || '',          // Column A - STATUS
-                                        retailer: row[8]?.toString().trim() || '',        // Column I - RETAILER
-                                        reserveLink: row[9]?.toString().trim() || '',     // Column J - RESERVATION LINK
-                                        storeNumber: row[10]?.toString().trim() || '',    // Column K - STORE NO.
-                                        storeName: row[11]?.toString().trim() || '',      // Column L - STORE NAME
-                                        address: row[12]?.toString().trim() || '',        // Column M - STREET
-                                        city: row[13]?.toString().trim() || '',           // Column N - CITY
-                                        state: row[14]?.toString().trim() || '',          // Column O - STATE
-                                        zip: row[18]?.toString().trim() || '',            // Column S - ZIP
-                                        latitude: lat,                                     // Column P - Latitude
-                                        longitude: lng                                     // Column Q - Longitude
-                                    };
-                                    console.log(`Adding store ${i}:`, store);
-                                    stores.push(store);
-                                } else {
-                                    console.log(`Row ${i} skipped - coordinates outside US bounds: lat=${lat}, lng=${lng}`);
-                                }
+                                console.log(`  ✅ Coordinates are valid numbers`);
+                                
+                                const store = {
+                                    status: row[0]?.toString().trim() || '',
+                                    retailer: row[8]?.toString().trim() || '',
+                                    reserveLink: row[9]?.toString().trim() || '',
+                                    storeNumber: row[10]?.toString().trim() || '',
+                                    storeName: row[11]?.toString().trim() || '',
+                                    address: row[12]?.toString().trim() || '',
+                                    city: row[13]?.toString().trim() || '',
+                                    state: row[14]?.toString().trim() || '',
+                                    zip: row[18]?.toString().trim() || '',
+                                    latitude: lat,
+                                    longitude: lng
+                                };
+                                console.log(`  🎯 ADDING STORE:`, store);
+                                stores.push(store);
                             } else {
-                                console.log(`Row ${i} skipped - invalid coordinates P=${lat}, Q=${lng}`);
+                                console.log(`  ❌ Invalid coordinates - skipping row ${i}`);
                             }
                         } else {
-                            console.log(`Row ${i} skipped - status "${status}" not in allowed list`);
+                            console.log(`  ❌ Status "${status}" not in allowed list - skipping row ${i}`);
                         }
                     } else {
-                        console.log(`Row ${i} skipped - insufficient columns (need 19, has ${row.length})`);
+                        console.log(`  ❌ Row ${i} has insufficient columns (${row.length} < 19) - skipping`);
                     }
                 }
                 
-                console.log('Final parsed stores:', stores.length, stores);
+                console.log(`\n🏪 PARSING COMPLETE:`);
+                console.log(`  Total stores added: ${stores.length}`);
+                console.log(`  First store:`, stores[0]);
+                
                 return stores;
             };
 
