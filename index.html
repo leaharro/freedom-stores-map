@@ -125,9 +125,18 @@
 
                 // Create map centered on US
                 map = new window.google.maps.Map(mapRef.current, {
-                    zoom: 5,
+                    zoom: 4,
                     center: { lat: 39.8283, lng: -98.5795 }, // Center of US
                     mapTypeId: 'roadmap',
+                    restriction: {
+                        latLngBounds: {
+                            north: 49.0,
+                            south: 25.0,
+                            west: -125.0,
+                            east: -66.0,
+                        },
+                        strictBounds: false,
+                    },
                     styles: [
                         {
                             featureType: 'poi',
@@ -199,13 +208,28 @@
                 if (markers.length > 0) {
                     const bounds = new window.google.maps.LatLngBounds();
                     markers.forEach(marker => bounds.extend(marker.getPosition()));
-                    map.fitBounds(bounds);
                     
-                    // Ensure we don't zoom in too much
-                    const listener = window.google.maps.event.addListener(map, 'idle', function() {
-                        if (map.getZoom() > 8) map.setZoom(8);
-                        window.google.maps.event.removeListener(listener);
-                    });
+                    // Only fit bounds if we have valid US coordinates
+                    const center = bounds.getCenter();
+                    if (center.lat() >= 25.0 && center.lat() <= 49.0 && center.lng() >= -125.0 && center.lng() <= -66.0) {
+                        map.fitBounds(bounds);
+                        
+                        // Ensure we don't zoom in too much
+                        const listener = window.google.maps.event.addListener(map, 'idle', function() {
+                            if (map.getZoom() > 8) map.setZoom(8);
+                            if (map.getZoom() < 4) map.setZoom(4);
+                            window.google.maps.event.removeListener(listener);
+                        });
+                    } else {
+                        // Keep US view if coordinates seem wrong
+                        map.setCenter({ lat: 39.8283, lng: -98.5795 });
+                        map.setZoom(4);
+                        console.warn('Coordinates appear to be outside US bounds, keeping US center view');
+                    }
+                } else {
+                    // No markers, keep US view
+                    map.setCenter({ lat: 39.8283, lng: -98.5795 });
+                    map.setZoom(4);
                 }
             };
 
@@ -280,21 +304,26 @@
                             
                             // Only add if we have valid coordinates
                             if (!isNaN(lat) && !isNaN(lng)) {
-                                const store = {
-                                    status: row[0]?.toString().trim() || '',          // Column A - STATUS
-                                    retailer: row[8]?.toString().trim() || '',        // Column I - RETAILER
-                                    reserveLink: row[9]?.toString().trim() || '',     // Column J - RESERVATION LINK
-                                    storeNumber: row[10]?.toString().trim() || '',    // Column K - STORE NO.
-                                    storeName: row[11]?.toString().trim() || '',      // Column L - STORE NAME
-                                    address: row[12]?.toString().trim() || '',        // Column M - STREET
-                                    city: row[13]?.toString().trim() || '',           // Column N - CITY
-                                    state: row[14]?.toString().trim() || '',          // Column O - STATE
-                                    zip: row[18]?.toString().trim() || '',            // Column S - ZIP
-                                    latitude: lat,                                     // Column P - Latitude
-                                    longitude: lng                                     // Column Q - Longitude
-                                };
-                                console.log(`Adding store ${i}:`, store);
-                                stores.push(store);
+                                // Validate coordinates are within US bounds
+                                if (lat >= 25.0 && lat <= 49.0 && lng >= -125.0 && lng <= -66.0) {
+                                    const store = {
+                                        status: row[0]?.toString().trim() || '',          // Column A - STATUS
+                                        retailer: row[8]?.toString().trim() || '',        // Column I - RETAILER
+                                        reserveLink: row[9]?.toString().trim() || '',     // Column J - RESERVATION LINK
+                                        storeNumber: row[10]?.toString().trim() || '',    // Column K - STORE NO.
+                                        storeName: row[11]?.toString().trim() || '',      // Column L - STORE NAME
+                                        address: row[12]?.toString().trim() || '',        // Column M - STREET
+                                        city: row[13]?.toString().trim() || '',           // Column N - CITY
+                                        state: row[14]?.toString().trim() || '',          // Column O - STATE
+                                        zip: row[18]?.toString().trim() || '',            // Column S - ZIP
+                                        latitude: lat,                                     // Column P - Latitude
+                                        longitude: lng                                     // Column Q - Longitude
+                                    };
+                                    console.log(`Adding store ${i}:`, store);
+                                    stores.push(store);
+                                } else {
+                                    console.log(`Row ${i} skipped - coordinates outside US bounds: lat=${lat}, lng=${lng}`);
+                                }
                             } else {
                                 console.log(`Row ${i} skipped - invalid coordinates P=${lat}, Q=${lng}`);
                             }
