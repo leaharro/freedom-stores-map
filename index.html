@@ -354,8 +354,12 @@
                         console.log(`  Column K (STORE NO): "${row[10]}"`);
                         console.log(`  Column L (STORE NAME): "${row[11]}"`);
                         console.log(`  Column O (STATE): "${row[14]}"`);
-                        console.log(`  Column P (LATITUDE): "${row[15]}"`);
-                        console.log(`  Column Q (LONGITUDE): "${row[16]}"`);
+                        console.log(`  Column P: "${row[15]}"`);
+                        console.log(`  Column Q: "${row[16]}"`);
+                        console.log(`  Column R: "${row[17]}"`);
+                        console.log(`  Column S: "${row[18]}"`);
+                        console.log(`  Column T: "${row[19]}"`);
+                        console.log(`  Column U: "${row[20]}"`);
                         
                         const status = row[0]?.toString().trim().toLowerCase();
                         console.log(`  Processed STATUS: "${status}"`);
@@ -364,15 +368,16 @@
                         if (['open', 'reserved', 'staffed'].includes(status)) {
                             console.log(`  ✅ Status "${status}" is allowed`);
                             
-                            const lat = parseFloat(row[15]);
-                            const lng = parseFloat(row[16]);
+                            // Try different columns for coordinates
+                            const latQ = parseFloat(row[16]); // Column Q
+                            const lngR = parseFloat(row[17]); // Column R
                             
-                            console.log(`  RAW coordinates: lat="${row[15]}", lng="${row[16]}"`);
-                            console.log(`  PARSED coordinates: lat=${lat}, lng=${lng}`);
-                            console.log(`  Are coordinates valid numbers? lat=${!isNaN(lat)}, lng=${!isNaN(lng)}`);
+                            console.log(`  Trying Q,R coordinates: lat="${row[16]}", lng="${row[17]}"`);
+                            console.log(`  Q,R PARSED: lat=${latQ}, lng=${lngR}`);
+                            console.log(`  Q,R valid? lat=${!isNaN(latQ)}, lng=${!isNaN(lngR)}`);
                             
-                            if (!isNaN(lat) && !isNaN(lng)) {
-                                console.log(`  ✅ Coordinates are valid numbers`);
+                            if (!isNaN(latQ) && !isNaN(lngR)) {
+                                console.log(`  ✅ Using Q,R coordinates: ${latQ}, ${lngR}`);
                                 
                                 const store = {
                                     status: row[0]?.toString().trim() || '',
@@ -384,13 +389,13 @@
                                     city: row[13]?.toString().trim() || '',
                                     state: row[14]?.toString().trim() || '',
                                     zip: row[18]?.toString().trim() || '',
-                                    latitude: lat,
-                                    longitude: lng
+                                    latitude: latQ,                                     // Column Q - Latitude
+                                    longitude: lngR                                     // Column R - Longitude
                                 };
                                 console.log(`  🎯 ADDING STORE:`, store);
                                 stores.push(store);
                             } else {
-                                console.log(`  ❌ Invalid coordinates - skipping row ${i}`);
+                                console.log(`  ❌ Q,R coordinates invalid - skipping row ${i}`);
                             }
                         } else {
                             console.log(`  ❌ Status "${status}" not in allowed list - skipping row ${i}`);
@@ -410,10 +415,11 @@
                         const status = row[0]?.toString().trim().toLowerCase();
                         
                         if (['open', 'reserved', 'staffed'].includes(status)) {
-                            const lat = parseFloat(row[15]);
-                            const lng = parseFloat(row[16]);
+                            // Try different columns for coordinates - looks like Q,R might have the actual coordinates
+                            const latQ = parseFloat(row[16]); // Column Q
+                            const lngR = parseFloat(row[17]); // Column R
                             
-                            if (!isNaN(lat) && !isNaN(lng)) {
+                            if (!isNaN(latQ) && !isNaN(lngR)) {
                                 const store = {
                                     status: row[0]?.toString().trim() || '',
                                     retailer: row[8]?.toString().trim() || '',
@@ -424,8 +430,8 @@
                                     city: row[13]?.toString().trim() || '',
                                     state: row[14]?.toString().trim() || '',
                                     zip: row[18]?.toString().trim() || '',
-                                    latitude: lat,
-                                    longitude: lng
+                                    latitude: latQ,                                     // Column Q - Latitude
+                                    longitude: lngR                                     // Column R - Longitude
                                 };
                                 stores.push(store);
                             }
