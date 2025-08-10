@@ -285,8 +285,24 @@
                 const stores = [];
                 
                 console.log('🔍 PARSING SHEET DATA');
-                console.log('📋 Header row (Row 0):', values[0]);
-                console.log('📊 Total rows to process:', values.length - 1);
+                console.log('📋 Row 0:', values[0]);
+                console.log('📋 Row 1:', values[1]);
+                console.log('📊 Total rows to process:', values.length);
+                
+                // Find the header row - look for "STATUS" in the first few rows
+                let headerRowIndex = -1;
+                for (let i = 0; i < Math.min(3, values.length); i++) {
+                    if (values[i] && values[i][0] && values[i][0].toString().toLowerCase().includes('status')) {
+                        headerRowIndex = i;
+                        console.log(`📋 Found header row at index ${i}:`, values[i]);
+                        break;
+                    }
+                }
+                
+                if (headerRowIndex === -1) {
+                    console.log('❌ Could not find header row with STATUS column');
+                    return stores;
+                }
                 
                 // Show the column mapping we're using
                 console.log('📍 COLUMN MAPPING:');
@@ -302,8 +318,11 @@
                 console.log('  Column Q (index 16): LONGITUDE');
                 console.log('  Column S (index 18): ZIP');
                 
-                // Skip header row (index 0) and process data rows
-                for (let i = 1; i < values.length && i <= 5; i++) { // Only process first 5 rows for debugging
+                // Process data rows (skip header row)
+                const dataStartIndex = headerRowIndex + 1;
+                console.log(`🚀 Starting data processing from row ${dataStartIndex}`);
+                
+                for (let i = dataStartIndex; i < values.length && i < dataStartIndex + 5; i++) { // Only process first 5 data rows for debugging
                     const row = values[i];
                     
                     console.log(`\n🔍 PROCESSING ROW ${i}:`);
@@ -362,6 +381,39 @@
                         }
                     } else {
                         console.log(`  ❌ Row ${i} has insufficient columns (${row.length} < 19) - skipping`);
+                    }
+                }
+                
+                // Now process ALL data rows for the actual results
+                console.log(`\n🏪 PROCESSING ALL DATA ROWS (${dataStartIndex} to ${values.length - 1})`);
+                
+                for (let i = dataStartIndex; i < values.length; i++) {
+                    const row = values[i];
+                    
+                    if (row.length >= 19) {
+                        const status = row[0]?.toString().trim().toLowerCase();
+                        
+                        if (['open', 'reserved', 'staffed'].includes(status)) {
+                            const lat = parseFloat(row[15]);
+                            const lng = parseFloat(row[16]);
+                            
+                            if (!isNaN(lat) && !isNaN(lng)) {
+                                const store = {
+                                    status: row[0]?.toString().trim() || '',
+                                    retailer: row[8]?.toString().trim() || '',
+                                    reserveLink: row[9]?.toString().trim() || '',
+                                    storeNumber: row[10]?.toString().trim() || '',
+                                    storeName: row[11]?.toString().trim() || '',
+                                    address: row[12]?.toString().trim() || '',
+                                    city: row[13]?.toString().trim() || '',
+                                    state: row[14]?.toString().trim() || '',
+                                    zip: row[18]?.toString().trim() || '',
+                                    latitude: lat,
+                                    longitude: lng
+                                };
+                                stores.push(store);
+                            }
+                        }
                     }
                 }
                 
