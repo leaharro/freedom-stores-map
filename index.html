@@ -75,9 +75,10 @@
             </svg>
         );
 
-        // Initialize Google Map
+        // Initialize Google Map - updated callback
         window.initMap = function() {
-            console.log('Google Maps API loaded');
+            console.log('✅ Google Maps API loaded successfully');
+            console.log('Available Google Maps objects:', Object.keys(window.google?.maps || {}));
         };
 
         const FreedomTHDStoresMap = () => {
@@ -121,33 +122,48 @@
             };
 
             const initializeMap = () => {
-                if (!window.google || !mapRef.current) return;
+                console.log('🗺️ Attempting to initialize map...');
+                console.log('window.google available?', !!window.google);
+                console.log('window.google.maps available?', !!window.google?.maps);
+                console.log('window.google.maps.Map available?', !!window.google?.maps?.Map);
+                console.log('mapRef.current available?', !!mapRef.current);
 
-                // Create map centered on US
-                map = new window.google.maps.Map(mapRef.current, {
-                    zoom: 4,
-                    center: { lat: 39.8283, lng: -98.5795 }, // Center of US
-                    mapTypeId: 'roadmap',
-                    restriction: {
-                        latLngBounds: {
-                            north: 49.0,
-                            south: 25.0,
-                            west: -125.0,
-                            east: -66.0,
+                if (!window.google?.maps?.Map || !mapRef.current) {
+                    console.log('❌ Google Maps or mapRef not ready yet');
+                    return false;
+                }
+
+                try {
+                    // Create map centered on US
+                    map = new window.google.maps.Map(mapRef.current, {
+                        zoom: 4,
+                        center: { lat: 39.8283, lng: -98.5795 }, // Center of US
+                        mapTypeId: 'roadmap',
+                        restriction: {
+                            latLngBounds: {
+                                north: 49.0,
+                                south: 25.0,
+                                west: -125.0,
+                                east: -66.0,
+                            },
+                            strictBounds: false,
                         },
-                        strictBounds: false,
-                    },
-                    styles: [
-                        {
-                            featureType: 'poi',
-                            elementType: 'labels',
-                            stylers: [{ visibility: 'off' }]
-                        }
-                    ]
-                });
+                        styles: [
+                            {
+                                featureType: 'poi',
+                                elementType: 'labels',
+                                stylers: [{ visibility: 'off' }]
+                            }
+                        ]
+                    });
 
-                setMapLoaded(true);
-                console.log('Google Map initialized');
+                    console.log('✅ Google Map initialized successfully');
+                    setMapLoaded(true);
+                    return true;
+                } catch (error) {
+                    console.error('❌ Error initializing map:', error);
+                    return false;
+                }
             };
 
             const addMarkersToMap = (storeData) => {
@@ -426,13 +442,32 @@
 
             // Initialize map when Google Maps API loads
             useEffect(() => {
+                let attempts = 0;
+                const maxAttempts = 50; // Try for ~5 seconds
+
                 const checkGoogleMaps = () => {
-                    if (window.google && window.google.maps) {
-                        initializeMap();
-                    } else {
+                    attempts++;
+                    console.log(`🔄 Attempt ${attempts}: Checking for Google Maps...`);
+                    
+                    if (window.google?.maps?.Map && mapRef.current) {
+                        console.log('✅ Google Maps ready, initializing...');
+                        const success = initializeMap();
+                        if (success) {
+                            console.log('✅ Map initialization successful');
+                            return;
+                        }
+                    }
+                    
+                    if (attempts < maxAttempts) {
+                        console.log(`⏳ Google Maps not ready yet, retrying in 100ms... (attempt ${attempts}/${maxAttempts})`);
                         setTimeout(checkGoogleMaps, 100);
+                    } else {
+                        console.error('❌ Failed to initialize Google Maps after maximum attempts');
+                        setError('Failed to load Google Maps. Please refresh the page.');
                     }
                 };
+                
+                // Start checking immediately
                 checkGoogleMaps();
             }, []);
 
